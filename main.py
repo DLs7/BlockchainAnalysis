@@ -66,11 +66,24 @@ def plot_coin(name, capitalized_name, start_date, end_date, miner_field, change_
     # plt.show()
     print("Finished " + capitalized_name + ' (' + start_date + ' -> ' + end_date + ')')
 
-def plot_gini(name, capitalized_name, start_date, end_date):
+def gini(x, unknown):
+    print(unknown)
+    # for i in range(unknown):
+    #     x = np.append(x, 1)
+    # print(x)
+    # mad = np.abs(np.subtract.outer(x, x)).mean()
+    # rmad = mad/np.mean(x)
+    # g = 0.5 * rmad
+    # return g
+
+def plot_gini(name, capitalized_name, start_date, end_date, miner_field):
     df = pd.read_csv('dataframes/'+ name + '_' + start_date + '_' + end_date + '.csv')
     df['date'] = pd.to_datetime(df['date'])
-    df = df.groupby(['date', 'guessed_miner'])['blocks'].sum()
+    df = df.groupby([miner_field])['blocks'].count().reset_index(name='blocks')
     print(df)
+    g = gini(df.to_numpy(), df[df.loc[miner_field] == 'C', 'blocks'].item())
+    # # print(df)
+    # print(g)
 
 def plot_upc(name, capitalized_name, start_date, end_date):
     df = pd.read_csv('dataframes/'+ name + '_' + start_date + '_' + end_date + '.csv')
@@ -87,7 +100,8 @@ def plot_upc(name, capitalized_name, start_date, end_date):
     # print(df)
 
 def main():
-    plot_gini('bitcoin', 'Bitcoin', '20090109', '20220113')
+    plot_gini('bitcoin', 'Bitcoin', '20090109', '20220113', 'guessed_miner')
+    # plot_gini('bitcoin', 'Bitcoin', '20200101', '20220113', 'guessed_miner')
 
     # plot_upc('bitcoin', 'Bitcoin', '20090109', '20220113')
     # plot_upc('bitcoin', 'Bitcoin', '20200101', '20220113')
