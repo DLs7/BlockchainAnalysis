@@ -163,7 +163,7 @@ def plot_upc(name, capitalized_name, start_date, end_date, miner_field):
     df = pd.read_csv('dataframes/full/' + name + '_' + start_date + '_' + end_date + '.csv')
     df = df[df[miner_field] != "*Desconhecido"]
     df = df.groupby(['date'])['blocks'].agg([mean, std])
-    df['upc'] = df['std']/df['mean']
+    df['Uniformidade'] = df['std']/df['mean']
     df = df.drop(['std', 'mean'], axis=1)
     plot = df.plot()
     plot.set_title('Coeficiente de Proporção de Uniformidade do ' + capitalized_name)
