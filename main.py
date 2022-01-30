@@ -5,9 +5,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 # from matplotlib.dates import YearLocator, DateFormatter
 import numpy as np
+import random
+import inequality
 from pathlib import Path
 
-def read_data(name, capitalized_name, start_date, end_date, miner_field, change_unknown, full):
+def read_data(name, capitalized_name, start_date, end_date, miner_field, change_unknown, full, foundry_digital):
     start_date_strp = datetime.datetime.strptime(start_date, '%Y%m%d')
     end_date_strp = datetime.datetime.strptime(end_date, '%Y%m%d')
     current_date = start_date_strp
@@ -24,6 +26,10 @@ def read_data(name, capitalized_name, start_date, end_date, miner_field, change_
     for file in files:
         df = pd.read_csv(file, sep='\t', header=0)
         #
+        if foundry_digital == True:
+            foundry_digital_substring = "466f756e6472792055534120506f6f6c202364726f70676f6c64"
+            df['coinbase_data_hex'] = df['coinbase_data_hex'].astype(str)
+            df.loc[df['coinbase_data_hex'].str.contains(foundry_digital_substring), miner_field] = "FoundryDigital"
         df['date'] = pd.to_datetime(df['time'])
         df = df.set_index('date')
         #
@@ -51,11 +57,11 @@ def read_data(name, capitalized_name, start_date, end_date, miner_field, change_
     elif(full == False): big_df2.to_csv('dataframes/parsed/' + name + '_' + start_date + '_' + end_date + '.csv')
 
 
-def plot_coin(name, capitalized_name, start_date, end_date, miner_field, change_unknown):
+def plot_coin(name, capitalized_name, start_date, end_date, miner_field, change_unknown, foundry_digital):
     print("Started " + capitalized_name + ' (' + start_date + ' -> ' + end_date + ')')
     file_csv = Path('dataframes/parsed/' + name + '_' + start_date + '_' + end_date + '.csv')
     if file_csv.exists() == False:
-        read_data(name, capitalized_name, start_date, end_date, miner_field, change_unknown, False)
+        read_data(name, capitalized_name, start_date, end_date, miner_field, change_unknown, False, foundry_digital)
 
     df = pd.read_csv('dataframes/parsed/' + name + '_' + start_date + '_' + end_date + '.csv')
     print(df.groupby(miner_field)['blocks'].sum().sort_values(ascending=False))
@@ -88,39 +94,45 @@ def plot_pie(name, capitalized_name, start_date, end_date, miner_field):
     plt.close()
     plt.figure().clear()
 
-def gini(arr):
-    count = arr.size
-    coefficient = 2 / count
-    indexes = np.arange(1, count + 1)
-    weighted_sum = (indexes * arr).sum()
-    total = arr.sum()
-    constant = (count + 1) / count
-    return coefficient * weighted_sum / total - constant
-
-def lorenz(arr):
-    scaled_prefix_sum = arr.cumsum() / arr.sum()
-    return np.insert(scaled_prefix_sum, 0, 0)
+def gini_by_col(column):
+    return inequality.gini.Gini(column.values).g
 
 def plot_gini(name, capitalized_name, start_date, end_date, miner_field, change_unknown):
     print("Started " + capitalized_name + ' (' + start_date + ' -> ' + end_date + ')')
     file_csv = Path('dataframes/full/' + name + '_' + start_date + '_' + end_date + '.csv')
     if file_csv.exists() == False:
         read_data(name, capitalized_name, start_date, end_date, miner_field, change_unknown, True)
-    # df = pd.read_csv('dataframes/full/' + name + '_' + start_date + '_' + end_date + '.csv')
-    # df = df.groupby([miner_field])['blocks'].sum().sort_values()
-    # print(df)
-    # unknown_count =  df.loc[df[miner_field] == '*Desconhecido'].item()
-    # print(unknown_count)
-    # g = gini(df.to_numpy())
-    # # print(g)
-    # lorenz_curve = lorenz(df.to_numpy())
-    # plt.plot(np.linspace(0.0, 1.0, lorenz_curve.size), lorenz_curve)
-    # plt.plot([0,1], [0,1])
-    # plt.margins(x=0, y=0)
-    # plt.savefig('figs/gini/' + name + '_' + start_date + '_' + end_date + '.png', bbox_inches="tight")
-    # print("Finished " + capitalized_name + ' (' + start_date + ' -> ' + end_date + ')')
-    # plt.close()
-    # plt.figure().clear()
+    df = pd.read_csv('dataframes/full/' + name + '_' + start_date + '_' + end_date + '.csv')
+    print(df)
+    df['date'] = pd.to_datetime(df['date'])
+    df['date'] = df['date'].dt.strftime('%Y-%m')
+    df = df.reset_index().pivot_table(index=miner_field, columns='date', values='blocks').fillna(0)
+    # with pd.option_context('display.max_rows', None):  # more options can be specified also
+    #     print(df)
+
+    inequalities = df[list(df.columns.values)].apply(gini_by_col, axis=0).to_frame('Gini')
+    plot = inequalities.plot(figsize=(10, 3));
+    plot.set_title('Coeficiente de Gini de ' + capitalized_name)
+    plot.margins(x=0)
+    plt.savefig('figs/gini/' + name + '_' + start_date + '_' + end_date + '.png', bbox_inches="tight")
+
+def theil_by_column(column):
+    return inequality.theil.Theil(column.values).T
+
+def plot_theil(name, capitalized_name, start_date, end_date, miner_field, change_unknown):
+    df = pd.read_csv('dataframes/full/' + name + '_' + start_date + '_' + end_date + '.csv')
+    print(df)
+    df['date'] = pd.to_datetime(df['date'])
+    df['date'] = df['date'].dt.strftime('%Y-%m')
+    df = df.reset_index().pivot_table(index=miner_field, columns='date', values='blocks').fillna(0)
+    # with pd.option_context('display.max_rows', None):  # more options can be specified also
+    #     print(df)
+
+    inequalities = df[list(df.columns.values)].apply(theil_by_column, axis=0).to_frame('Theil')
+    plot = inequalities.plot(figsize=(10, 3));
+    plot.set_title('Coeficiente de Theil de ' + capitalized_name)
+    plot.margins(x=0)
+    plt.savefig('figs/theil/' + name + '_' + start_date + '_' + end_date + '.png', bbox_inches="tight")
 
 def nakamoto(arr, count_df):
     index = 0
@@ -132,18 +144,21 @@ def nakamoto(arr, count_df):
             return index
 
 def plot_nakamoto(names, capitalized_names, start_date, end_date, miner_fields):
-    index = []
     i = 0
+    index = []
     while i < len(names):
         df = pd.read_csv('dataframes/full/' + names[i] + '_' + start_date + '_' + end_date + '.csv')
         df = df.groupby([miner_fields[i]])['blocks'].sum().sort_values(ascending=False)
         count_df = df.sum()
-        print(nakamoto(df.to_numpy(), count_df))
+        if(names[i] != 'ethereum'):
+            df.drop(['*Desconhecido'], inplace=True)
+        index.append(nakamoto(df.to_numpy(), count_df))
         i += 1
+    plt.bar(capitalized_names, index)
+    plt.show()
 
 def std(x): return np.std(x)
 def mean(x): return np.mean(x)
-
 
 def plot_upc(name, capitalized_name, start_date, end_date):
     df = pd.read_csv('dataframes/full/' + name + '_' + start_date + '_' + end_date + '.csv')
@@ -167,49 +182,60 @@ def main():
     # miner_fields = ['guessed_miner', 'guessed_miner', 'guessed_miner', 'miner', 'guessed_miner']
     # plot_nakamoto(names, capitalized_names, start_date, end_date, miner_fields)
 
-    plot_coin('bitcoin', 'Bitcoin', '20090109', '20211231', 'guessed_miner', True)
-    plot_coin('bitcoin', 'Bitcoin', '20200101', '20211231', 'guessed_miner', True)
-    plot_coin('bitcoin-cash', 'BitcoinCash', '20170801', '20211231', 'guessed_miner', True)
-    plot_coin('bitcoin-cash', 'BitcoinCash', '20200101', '20211231', 'guessed_miner', True)
-    plot_coin('dash', 'Dash', '20140119', '20211231', 'guessed_miner', True)
-    plot_coin('dash', 'Dash', '20200101', '20211231', 'guessed_miner', True)
-    plot_coin('ethereum', 'Ethereum', '20150730', '20211231', 'miner', False)
-    plot_coin('ethereum', 'Ethereum', '20200101', '20211231', 'miner', False)
-    plot_coin('litecoin', 'Litecoin', '20111012', '20211231', 'guessed_miner', True)
-    plot_coin('litecoin', 'Litecoin', '20200101', '20211231', 'guessed_miner', True)
+    # plot_coin('bitcoin', 'Bitcoin', '20090109', '20211231', 'guessed_miner', True, True)
+    # plot_coin('bitcoin', 'Bitcoin', '20200101', '20211231', 'guessed_miner', True, True)
+    # plot_coin('bitcoin-cash', 'BitcoinCash', '20170801', '20211231', 'guessed_miner', True, True)
+    # plot_coin('bitcoin-cash', 'BitcoinCash', '20200101', '20211231', 'guessed_miner', True, True)
+    # plot_coin('dash', 'Dash', '20140119', '20211231', 'guessed_miner', True, False)
+    # plot_coin('dash', 'Dash', '20200101', '20211231', 'guessed_miner', True, False)
+    # plot_coin('ethereum', 'Ethereum', '20150730', '20211231', 'miner', False, False)
+    # plot_coin('ethereum', 'Ethereum', '20200101', '20211231', 'miner', False, False)
+    # plot_coin('litecoin', 'Litecoin', '20111012', '20211231', 'guessed_miner', True, False)
+    # plot_coin('litecoin', 'Litecoin', '20200101', '20211231', 'guessed_miner', True, False)
 
-    plot_gini('bitcoin', 'Bitcoin', '20090109', '20211231', 'guessed_miner', True)
-    plot_gini('bitcoin', 'Bitcoin', '20200101', '20211231', 'guessed_miner', True)
-    plot_gini('bitcoin-cash', 'BitcoinCash', '20170801', '20211231', 'guessed_miner', True)
-    plot_gini('bitcoin-cash', 'BitcoinCash', '20200101', '20211231', 'guessed_miner', True)
-    plot_gini('dash', 'Dash', '20140119', '20211231', 'guessed_miner', True)
-    plot_gini('dash', 'Dash', '20200101', '20211231', 'guessed_miner', True)
-    plot_gini('ethereum', 'Ethereum', '20150730', '20211231', 'miner', False)
-    plot_gini('ethereum', 'Ethereum', '20200101', '20211231', 'miner', False)
-    plot_gini('litecoin', 'Litecoin', '20111012', '20211231', 'guessed_miner', True)
-    plot_gini('litecoin', 'Litecoin', '20200101', '20211231', 'guessed_miner', True)
+    # plot_gini('bitcoin', 'Bitcoin', '20090109', '20211231', 'guessed_miner', True)
+    # plot_gini('bitcoin', 'Bitcoin', '20200101', '20211231', 'guessed_miner', True)
+    # plot_gini('bitcoin-cash', 'BitcoinCash', '20170801', '20211231', 'guessed_miner', True)
+    # plot_gini('bitcoin-cash', 'BitcoinCash', '20200101', '20211231', 'guessed_miner', True)
+    # plot_gini('dash', 'Dash', '20140119', '20211231', 'guessed_miner', True)
+    # plot_gini('dash', 'Dash', '20200101', '20211231', 'guessed_miner', True)
+    # plot_gini('ethereum', 'Ethereum', '20150730', '20211231', 'miner', False)
+    # plot_gini('ethereum', 'Ethereum', '20200101', '20211231', 'miner', False)
+    # plot_gini('litecoin', 'Litecoin', '20111012', '20211231', 'guessed_miner', True)
+    # plot_gini('litecoin', 'Litecoin', '20200101', '20211231', 'guessed_miner', True)
 
-    plot_pie('bitcoin', 'Bitcoin', '20090109', '20211231', 'guessed_miner')
-    plot_pie('bitcoin', 'Bitcoin', '20200101', '20211231', 'guessed_miner')
-    plot_pie('bitcoin-cash', 'BitcoinCash', '20170801', '20211231', 'guessed_miner')
-    plot_pie('bitcoin-cash', 'BitcoinCash', '20200101', '20211231', 'guessed_miner')
-    plot_pie('dash', 'Dash', '20140119', '20211231', 'guessed_miner')
-    plot_pie('dash', 'Dash', '20200101', '20211231', 'guessed_miner')
-    plot_pie('ethereum', 'Ethereum', '20150730', '20211231', 'miner')
-    plot_pie('ethereum', 'Ethereum', '20200101', '20211231', 'miner')
-    plot_pie('litecoin', 'Litecoin', '20111012', '20211231', 'guessed_miner')
-    plot_pie('litecoin', 'Litecoin', '20200101', '20211231', 'guessed_miner')
+    plot_theil('bitcoin', 'Bitcoin', '20090109', '20211231', 'guessed_miner', True)
+    plot_theil('bitcoin', 'Bitcoin', '20200101', '20211231', 'guessed_miner', True)
+    plot_theil('bitcoin-cash', 'BitcoinCash', '20170801', '20211231', 'guessed_miner', True)
+    plot_theil('bitcoin-cash', 'BitcoinCash', '20200101', '20211231', 'guessed_miner', True)
+    plot_theil('dash', 'Dash', '20140119', '20211231', 'guessed_miner', True)
+    plot_theil('dash', 'Dash', '20200101', '20211231', 'guessed_miner', True)
+    plot_theil('ethereum', 'Ethereum', '20150730', '20211231', 'miner', False)
+    plot_theil('ethereum', 'Ethereum', '20200101', '20211231', 'miner', False)
+    plot_theil('litecoin', 'Litecoin', '20111012', '20211231', 'guessed_miner', True)
+    plot_theil('litecoin', 'Litecoin', '20200101', '20211231', 'guessed_miner', True)
 
-    plot_upc('bitcoin', 'Bitcoin', '20090109', '20211231')
-    plot_upc('bitcoin', 'Bitcoin', '20200101', '20211231')
-    plot_upc('bitcoin-cash', 'BitcoinCash', '20170801', '20211231')
-    plot_upc('bitcoin-cash', 'BitcoinCash', '20200101', '20211231')
-    plot_upc('dash', 'Dash', '20140119', '20211231')
-    plot_upc('dash', 'Dash', '20200101', '20211231')
-    plot_upc('ethereum', 'Ethereum', '20150730', '20211231')
-    plot_upc('ethereum', 'Ethereum', '20200101', '20211231')
-    plot_upc('litecoin', 'Litecoin', '20111012', '20211231')
-    plot_upc('litecoin', 'Litecoin', '20200101', '20211231')
+    # plot_pie('bitcoin', 'Bitcoin', '20090109', '20211231', 'guessed_miner')
+    # plot_pie('bitcoin', 'Bitcoin', '20200101', '20211231', 'guessed_miner')
+    # plot_pie('bitcoin-cash', 'BitcoinCash', '20170801', '20211231', 'guessed_miner')
+    # plot_pie('bitcoin-cash', 'BitcoinCash', '20200101', '20211231', 'guessed_miner')
+    # plot_pie('dash', 'Dash', '20140119', '20211231', 'guessed_miner')
+    # plot_pie('dash', 'Dash', '20200101', '20211231', 'guessed_miner')
+    # plot_pie('ethereum', 'Ethereum', '20150730', '20211231', 'miner')
+    # plot_pie('ethereum', 'Ethereum', '20200101', '20211231', 'miner')
+    # plot_pie('litecoin', 'Litecoin', '20111012', '20211231', 'guessed_miner')
+    # plot_pie('litecoin', 'Litecoin', '20200101', '20211231', 'guessed_miner')
+
+    # plot_upc('bitcoin', 'Bitcoin', '20090109', '20211231')
+    # plot_upc('bitcoin', 'Bitcoin', '20200101', '20211231')
+    # plot_upc('bitcoin-cash', 'BitcoinCash', '20170801', '20211231')
+    # plot_upc('bitcoin-cash', 'BitcoinCash', '20200101', '20211231')
+    # plot_upc('dash', 'Dash', '20140119', '20211231')
+    # plot_upc('dash', 'Dash', '20200101', '20211231')
+    # plot_upc('ethereum', 'Ethereum', '20150730', '20211231')
+    # plot_upc('ethereum', 'Ethereum', '20200101', '20211231')
+    # plot_upc('litecoin', 'Litecoin', '20111012', '20211231')
+    # plot_upc('litecoin', 'Litecoin', '20200101', '20211231')
 
 if __name__ == "__main__":
     main()
