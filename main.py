@@ -112,6 +112,10 @@ def plot_gini(name, capitalized_name, start_date, end_date, miner_field, change_
     plot = inequalities.plot();
     plot.set_title('Coeficiente de Gini de ' + capitalized_name)
     plot.margins(x=0)
+    if(name == 'dash'):
+        plot.set_ylim([0, None])
+    elif():
+        plot.set_ylim([0.5, None])
     plt.savefig('figs/gini/' + name + '_' + start_date + '_' + end_date + '.png', bbox_inches="tight")
 
 def theil_by_column(column):
@@ -131,6 +135,10 @@ def plot_theil(name, capitalized_name, start_date, end_date, miner_field, change
     plot = inequalities.plot();
     plot.set_title('Coeficiente de Theil de ' + capitalized_name)
     plot.margins(x=0)
+    if(name == 'ethereum'):
+        plot.set_ylim([3.0, None])
+    elif():
+        plot.set_ylim([0, None])
     plt.savefig('figs/theil/' + name + '_' + start_date + '_' + end_date + '.png', bbox_inches="tight")
 
 def nakamoto(arr, count_df):
@@ -162,12 +170,15 @@ def mean(x): return np.mean(x)
 def plot_upc(name, capitalized_name, start_date, end_date, miner_field):
     df = pd.read_csv('dataframes/full/' + name + '_' + start_date + '_' + end_date + '.csv')
     df = df[df[miner_field] != "*Desconhecido"]
+    df['date'] = pd.to_datetime(df['date'])
+    df['date'] = df['date'].dt.strftime('%Y-%m')
+    # print(df)
     df = df.groupby(['date'])['blocks'].agg([mean, std])
     df['Uniformidade'] = df['std']/df['mean']
     df = df.drop(['std', 'mean'], axis=1)
     plot = df.plot()
     plot.set_title('Coeficiente de Proporção de Uniformidade do ' + capitalized_name)
-    plot.set_ylim([0, None])
+    plot.set_ylim([0.4, None])
     plot.margins(x=0)
     # plot.xaxis.set_major_locator(YearLocator())
     # plot.xaxis.set_major_formatter(DateFormatter('%Y-%m-d'))
@@ -193,27 +204,27 @@ def main():
     # plot_coin('litecoin', 'Litecoin', '20111012', '20211231', 'guessed_miner', True, False)
     # plot_coin('litecoin', 'Litecoin', '20200101', '20211231', 'guessed_miner', True, False)
 
-    # plot_gini('bitcoin', 'Bitcoin', '20090109', '20211231', 'guessed_miner', True, True)
-    # plot_gini('bitcoin', 'Bitcoin', '20200101', '20211231', 'guessed_miner', True, True)
-    # plot_gini('bitcoin-cash', 'BitcoinCash', '20170801', '20211231', 'guessed_miner', True, True)
-    # plot_gini('bitcoin-cash', 'BitcoinCash', '20200101', '20211231', 'guessed_miner', True, True)
-    # plot_gini('dash', 'Dash', '20140119', '20211231', 'guessed_miner', True, False)
-    # plot_gini('dash', 'Dash', '20200101', '20211231', 'guessed_miner', True, False)
-    # plot_gini('ethereum', 'Ethereum', '20150730', '20211231', 'miner', False, False)
-    # plot_gini('ethereum', 'Ethereum', '20200101', '20211231', 'miner', False, False)
-    # plot_gini('litecoin', 'Litecoin', '20111012', '20211231', 'guessed_miner', True, False)
-    # plot_gini('litecoin', 'Litecoin', '20200101', '20211231', 'guessed_miner', True, False)
+    plot_gini('bitcoin', 'Bitcoin', '20090109', '20211231', 'guessed_miner', True, True)
+    plot_gini('bitcoin', 'Bitcoin', '20200101', '20211231', 'guessed_miner', True, True)
+    plot_gini('bitcoin-cash', 'BitcoinCash', '20170801', '20211231', 'guessed_miner', True, True)
+    plot_gini('bitcoin-cash', 'BitcoinCash', '20200101', '20211231', 'guessed_miner', True, True)
+    plot_gini('dash', 'Dash', '20140119', '20211231', 'guessed_miner', True, False)
+    plot_gini('dash', 'Dash', '20200101', '20211231', 'guessed_miner', True, False)
+    plot_gini('ethereum', 'Ethereum', '20150730', '20211231', 'miner', False, False)
+    plot_gini('ethereum', 'Ethereum', '20200101', '20211231', 'miner', False, False)
+    plot_gini('litecoin', 'Litecoin', '20111012', '20211231', 'guessed_miner', True, False)
+    plot_gini('litecoin', 'Litecoin', '20200101', '20211231', 'guessed_miner', True, False)
 
-    # plot_theil('bitcoin', 'Bitcoin', '20090109', '20211231', 'guessed_miner', True)
-    # plot_theil('bitcoin', 'Bitcoin', '20200101', '20211231', 'guessed_miner', True)
-    # plot_theil('bitcoin-cash', 'BitcoinCash', '20170801', '20211231', 'guessed_miner', True)
-    # plot_theil('bitcoin-cash', 'BitcoinCash', '20200101', '20211231', 'guessed_miner', True)
-    # plot_theil('dash', 'Dash', '20140119', '20211231', 'guessed_miner', True)
-    # plot_theil('dash', 'Dash', '20200101', '20211231', 'guessed_miner', True)
-    # plot_theil('ethereum', 'Ethereum', '20150730', '20211231', 'miner', False)
-    # plot_theil('ethereum', 'Ethereum', '20200101', '20211231', 'miner', False)
-    # plot_theil('litecoin', 'Litecoin', '20111012', '20211231', 'guessed_miner', True)
-    # plot_theil('litecoin', 'Litecoin', '20200101', '20211231', 'guessed_miner', True)
+    plot_theil('bitcoin', 'Bitcoin', '20090109', '20211231', 'guessed_miner', True)
+    plot_theil('bitcoin', 'Bitcoin', '20200101', '20211231', 'guessed_miner', True)
+    plot_theil('bitcoin-cash', 'BitcoinCash', '20170801', '20211231', 'guessed_miner', True)
+    plot_theil('bitcoin-cash', 'BitcoinCash', '20200101', '20211231', 'guessed_miner', True)
+    plot_theil('dash', 'Dash', '20140119', '20211231', 'guessed_miner', True)
+    plot_theil('dash', 'Dash', '20200101', '20211231', 'guessed_miner', True)
+    plot_theil('ethereum', 'Ethereum', '20150730', '20211231', 'miner', False)
+    plot_theil('ethereum', 'Ethereum', '20200101', '20211231', 'miner', False)
+    plot_theil('litecoin', 'Litecoin', '20111012', '20211231', 'guessed_miner', True)
+    plot_theil('litecoin', 'Litecoin', '20200101', '20211231', 'guessed_miner', True)
 
     # plot_pie('bitcoin', 'Bitcoin', '20090109', '20211231', 'guessed_miner')
     # plot_pie('bitcoin', 'Bitcoin', '20200101', '20211231', 'guessed_miner')
