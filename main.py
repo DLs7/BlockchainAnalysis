@@ -212,33 +212,16 @@ def plot_theil(names, capitalized_names, start_date, end_date, miner_fields):
     plt.legend(bbox_to_anchor=(1.04,0), loc='lower left')
     plt.savefig('figs/theil/' + start_date + '_' + end_date + '.png', bbox_inches='tight')
 
-def nakamoto_by_column(column):
-    blocks_array = column.sort_values(ascending=False).to_numpy()
-    blocks = blocks_array.sum()/2
-    print(column.sort_values(ascending=False))
-    print(blocks)
-    # print(blocks_array)
-    # print(blocks)
-    sum = 0
-    result = 0
-    for block in blocks_array:
-        result += 1
-        sum = sum + block
-        print('> ' + str(block))
-        print('- ' + str(result))
-        if(sum >= blocks):
-            print('>> ' + str(sum))
-            print('-- ' + str(result))
-            return result
-
-def nakamoto(arr, count_df):
+def nakamoto(arr, count_df, unknown_count):
+    print(unknown_count)
     index = 0
     sum = 0
     for num in arr:
-        sum += num
-        index += 1
-        if sum >= count_df/2:
-            return index
+        if np.isin(num, unknown_count) == False:
+            sum += num
+            index += 1
+            if sum >= count_df/2:
+                return index
 
 def plot_nakamoto(names, capitalized_names, start_date, end_date, miner_fields):
     i = 0
@@ -247,9 +230,7 @@ def plot_nakamoto(names, capitalized_names, start_date, end_date, miner_fields):
         df = pd.read_csv('dataframes/full/' + names[i] + '_' + start_date + '_' + end_date + '.csv')
         df = df.groupby([miner_fields[i]])['blocks'].sum().sort_values(ascending=False)
         count_df = df.sum()
-        if(names[i] != 'ethereum'):
-            df.drop(['*Desconhecido'], inplace=True)
-        index.append(nakamoto(df.to_numpy(), count_df))
+        index.append(nakamoto(df.to_numpy(), count_df, df[df.index == "*Desconhecido"].to_numpy()))
         i += 1
     plt.bar(capitalized_names, index)
     plt.savefig('figs/nakamoto/' + start_date + '_' + end_date + '.png', bbox_inches="tight")
@@ -272,8 +253,8 @@ def plot_upc(names, capitalized_names, start_date, end_date, miner_fields):
         df['date'] = pd.to_datetime(df['date'])
         df['date'] = df['date'].dt.strftime('%Y-%m')
         # print(df)
-        df = df.groupby(['date'])['blocks'].agg([mean, std])
-        df[capitalized_names[i]] = df['std']/df['mean']
+        df = df.groupby(['date'])['percent'].agg(['mean', 'std'])
+        df[capitalized_names[i]] = 1 - (df['std']/df['mean'])
         result.append(df.drop(['std', 'mean'], axis=1))
         i += 1
     result2 = pd.concat(result, axis=1)
@@ -299,9 +280,9 @@ def main():
     # plot_coin('ethereum', 'Ethereum', '20200101', '20211231', 'miner', False, False)
     # plot_coin('litecoin', 'Litecoin', '20200101', '20211231', 'guessed_miner', True, False)
 
-    plot_nakamoto(names, capitalized_names, start_date, end_date, miner_fields)
-    plot_gini(names, capitalized_names, start_date, end_date, miner_fields)
-    plot_theil(names, capitalized_names, start_date, end_date, miner_fields)
+    # plot_nakamoto(names, capitalized_names, start_date, end_date, miner_fields)
+    # plot_gini(names, capitalized_names, start_date, end_date, miner_fields)
+    # plot_theil(names, capitalized_names, start_date, end_date, miner_fields)
     plot_upc(names, capitalized_names, start_date, end_date, miner_fields)
 
     # plot_pie('dash', 'Dash', '20200101', '20211231', 'guessed_miner')
