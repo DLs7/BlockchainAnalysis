@@ -3,6 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import inequality
+import locale
 from pathlib import Path
 
 def read_data(name, capitalized_name, start_date, end_date, miner_field, change_unknown, full, add_missing):
@@ -111,6 +112,31 @@ def read_data(name, capitalized_name, start_date, end_date, miner_field, change_
     if full: big_df2.to_csv('dataframes/full/' + name + '_' + start_date + '_' + end_date + '.csv')
     elif(full == False): big_df2.to_csv('dataframes/parsed/' + name + '_' + start_date + '_' + end_date + '.csv')
 
+def my_autopct(pct):
+    return ('%.1f%%' % pct) if pct > 2.5 else ''
+
+def plot_coin_and_pie(name, capitalized_name, start_date, end_date, miner_field, change_unknown, add_missing):
+    df1 = plot_pie(name, capitalized_name, start_date, end_date, miner_field)
+    df2 = plot_coin(name, capitalized_name, start_date, end_date, miner_field, change_unknown, add_missing)
+
+    fig, axes = plt.subplots(nrows=1, ncols=2)
+    
+    plot1 = df1.plot.pie(y='blocks', label='', colormap='turbo',
+                 labels=None, ax=axes[0], autopct=my_autopct, pctdistance=1.175, figsize=(12,4))
+    plot1.set_title('% total de blocos minerados em ' + capitalized_name)
+
+    df2 = df2.pivot_table(index='date', columns=miner_field, values='percent').fillna(0)
+    df2.index = pd.to_datetime(df2.index)
+    plot2 = df2.plot.area(colormap='turbo', ax=axes[1], legend=None, xlabel='')
+    plot2.set_title('% mensal de blocos minerados em ' + capitalized_name)
+    plot2.set_ylim([0, 1])
+    plot2.invert_yaxis()
+    plt.margins(x=0)
+    fig.tight_layout()
+    handles, labels = plot2.get_legend_handles_labels()
+    labels = map(truncate, labels)
+    plt.figlegend(handles, labels, loc = 'center left', ncol=1, bbox_to_anchor=(1, 0.5))
+    plt.savefig('figs/distribution/' + name + '_' + start_date + '_' + end_date + '.png', bbox_inches='tight')
 
 def plot_coin(name, capitalized_name, start_date, end_date, miner_field, change_unknown, add_missing):
     print('Started ' + capitalized_name + ' (' + start_date + ' -> ' + end_date + ')')
@@ -128,15 +154,17 @@ def plot_coin(name, capitalized_name, start_date, end_date, miner_field, change_
     df['date'] = df['date'].dt.strftime('%Y-%m')
     df[miner_field] = df[miner_field].apply(lambda x: truncate(x))
 
-    plot = df.pivot_table(index='date', columns=miner_field, values='percent').fillna(0).plot.area(colormap='turbo')
-    plot.set_title('% de blocos minerados por pools em ' + capitalized_name, color='black')
-    plot.set_ylim([0, 1])
-    plot.invert_yaxis()
-    plt.margins(x=0)
-    plt.legend(bbox_to_anchor=(1.04,0), loc='lower left')
-    plt.savefig('figs/distribution/' + name + '_' + start_date + '_' + end_date + '.png', bbox_inches='tight')
-    # plt.show()
-    print('Finished ' + capitalized_name + ' (' + start_date + ' -> ' + end_date + ')')
+    return df
+
+    # plot = df.pivot_table(index='date', columns=miner_field, values='percent').fillna(0).plot.area(colormap='turbo')
+    # plot.set_title('% de blocos minerados por pools em ' + capitalized_name, color='black')
+    # plot.set_ylim([0, 1])
+    # plot.invert_yaxis()
+    # plt.margins(x=0)
+    # plt.legend(bbox_to_anchor=(1.04,0), loc='lower left')
+    # plt.savefig('figs/distribution/' + name + '_' + start_date + '_' + end_date + '.png', bbox_inches='tight')
+    # # plt.show()
+    # print('Finished ' + capitalized_name + ' (' + start_date + ' -> ' + end_date + ')')
 
 def truncate(index):
     if len(index) >= 20:
@@ -145,15 +173,18 @@ def truncate(index):
 
 def plot_pie(name, capitalized_name, start_date, end_date, miner_field):
     df = pd.read_csv('dataframes/parsed/' + name + '_' + start_date + '_' + end_date + '.csv')
-    df = df.groupby(miner_field)['blocks'].sum().sort_values(ascending=False)
+    df = df.groupby(miner_field)['blocks'].sum()
 
-    plot = df.plot.pie(y='blocks', colormap='turbo', labels=None)
-    plot.set_title('Total de blocos minerados por pools em ' + capitalized_name, color='black')
-    index = df.index.map(truncate)
-    plt.legend(bbox_to_anchor=(1.04,0), loc='lower left', labels=index)
-    plt.savefig('figs/pie/' + name + '_' + start_date + '_' + end_date + '.png', bbox_inches='tight')
-    plt.close()
-    plt.figure().clear()
+    return df
+
+    # plot = df.plot.pie(y='blocks', colormap='turbo', labels=None)
+    # plot.set_title('Total de blocos minerados por pools em ' + capitalized_name, color='black')
+    # index = df.index.map(truncate)
+    # return index
+    # plt.legend(bbox_to_anchor=(1.04,0), loc='lower left', labels=index)
+    # plt.savefig('figs/pie/' + name + '_' + start_date + '_' + end_date + '.png', bbox_inches='tight')
+    # plt.close()
+    # plt.figure().clear()
 
 def gini_by_column(column):
     return inequality.gini.Gini(column.values).g
@@ -268,22 +299,24 @@ def plot_upc(names, capitalized_names, start_date, end_date, miner_fields):
     # print(df)
 
 def main():
+    locale.setlocale(locale.LC_ALL,'pt_BR.utf8')
+
     names = ['bitcoin', 'bitcoin-cash', 'dash', 'ethereum', 'litecoin']
     capitalized_names = ['Bitcoin', 'BitcoinCash', 'Dash', 'Ethereum', 'Litecoin']
     start_date='20200101'
     end_date='20211231'
     miner_fields = ['guessed_miner', 'guessed_miner', 'guessed_miner', 'miner', 'guessed_miner']
 
-    # plot_coin('dash', 'Dash', '20200101', '20211231', 'guessed_miner', True, True)
-    # plot_coin('bitcoin', 'Bitcoin', '20200101', '20211231', 'guessed_miner', True, True)
-    # plot_coin('bitcoin-cash', 'BitcoinCash', '20200101', '20211231', 'guessed_miner', True, True)
-    # plot_coin('ethereum', 'Ethereum', '20200101', '20211231', 'miner', False, False)
-    # plot_coin('litecoin', 'Litecoin', '20200101', '20211231', 'guessed_miner', True, False)
+    plot_coin_and_pie('bitcoin', 'Bitcoin', '20200101', '20211231', 'guessed_miner', True, True)
+    plot_coin_and_pie('bitcoin-cash', 'BitcoinCash', '20200101', '20211231', 'guessed_miner', True, True)
+    plot_coin_and_pie('dash', 'Dash', '20200101', '20211231', 'guessed_miner', True, True)
+    plot_coin_and_pie('ethereum', 'Ethereum', '20200101', '20211231', 'miner', False, False)
+    plot_coin_and_pie('litecoin', 'Litecoin', '20200101', '20211231', 'guessed_miner', True, False)
 
     # plot_nakamoto(names, capitalized_names, start_date, end_date, miner_fields)
     # plot_gini(names, capitalized_names, start_date, end_date, miner_fields)
     # plot_theil(names, capitalized_names, start_date, end_date, miner_fields)
-    plot_upc(names, capitalized_names, start_date, end_date, miner_fields)
+    # plot_upc(names, capitalized_names, start_date, end_date, miner_fields)
 
     # plot_pie('dash', 'Dash', '20200101', '20211231', 'guessed_miner')
     # plot_pie('bitcoin', 'Bitcoin', '20200101', '20211231', 'guessed_miner')
